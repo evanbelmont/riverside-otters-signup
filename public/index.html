@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Club Event Signup</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <h1>Club Event Signup</h1>
+      <p class="club-name">Riverside Otters Swim Club</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- ===== Section 1: Sign up ===== -->
+    <section class="card" aria-labelledby="signup-heading">
+      <h2 id="signup-heading">Sign up</h2>
+      <p class="instructions">Enter a fictional attendee name, choose one session, then press Sign Up.</p>
+
+      <!-- autocomplete="off" so the browser itself does not remember names -->
+      <form id="signup-form" novalidate autocomplete="off">
+        <div class="field">
+          <label for="attendee-name">Attendee name (fictional)</label>
+          <input type="text" id="attendee-name" name="attendeeName" maxlength="100">
+        </div>
+
+        <fieldset id="session-group">
+          <legend>Choose a session</legend>
+          <label class="choice">
+            <input type="radio" name="session" value="Beginner Lesson">
+            <span class="choice-text">Beginner Lesson</span>
+            <span class="spots" data-spots-for="Beginner Lesson"></span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="session" value="Advanced Practice">
+            <span class="choice-text">Advanced Practice</span>
+            <span class="spots" data-spots-for="Advanced Practice"></span>
+          </label>
+        </fieldset>
+
+        <!-- Join Waitlist only appears when the chosen session is full -->
+        <p id="waitlist-hint" class="waitlist-hint" hidden></p>
+        <div class="form-actions">
+          <button type="submit" class="primary">Sign Up</button>
+          <button type="button" id="join-waitlist" class="waitlist-button" hidden>Join Waitlist</button>
+        </div>
+      </form>
+
+      <div id="message-area" class="message-area" aria-live="polite"></div>
+    </section>
+
+    <!-- ===== Section 2: Saved registrations ===== -->
+    <section class="card" id="registrations" aria-labelledby="registrations-heading">
+      <h2 id="registrations-heading" tabindex="-1">Saved registrations</h2>
+
+      <!-- Counts and spots always cover every registration, even during a search -->
+      <ul id="session-counts" class="counts" aria-label="Spots by session"></ul>
+
+      <form id="search-form" role="search" autocomplete="off">
+        <label for="search-input">Search attendee names</label>
+        <div class="search-row">
+          <input type="text" id="search-input" name="search">
+          <button type="submit" class="secondary">Search</button>
+          <button type="button" id="clear-search" class="secondary">Clear</button>
+        </div>
+      </form>
+
+      <div id="list-message" class="message-area" aria-live="polite"></div>
+      <p id="list-status" aria-live="polite"></p>
+
+      <p class="list-caption" id="list-caption" hidden>Names sorted A–Z</p>
+      <ul id="registration-list" class="reg-list" aria-labelledby="registrations-heading"></ul>
+    </section>
+
+    <!-- ===== Section 3: Waitlist ===== -->
+    <section class="card" id="waitlist" aria-labelledby="waitlist-heading">
+      <h2 id="waitlist-heading" tabindex="-1">Waitlist</h2>
+      <p class="instructions">When a spot opens in a session, the person at #1 on its waitlist is registered automatically.</p>
+      <div id="waitlist-message" class="message-area" aria-live="polite"></div>
+      <div id="waitlist-groups" class="waitlist-groups"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

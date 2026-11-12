@@ -1,0 +1,43 @@
+# --- SQLite databases (real signups stay on this computer) ---
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# --- Database backups ---
+backups/
+*.bak
+*.backup
+
+# --- Credentials and environment files ---
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials*
+secrets*
+.netrc
+
+# --- Temporary and system files ---
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+*.log
+*.swp
+*~
+tmp/
+temp/
+
+# --- Python cache ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- Editor settings ---
+.vscode/
+.idea/
