@@ -1,6 +1,13 @@
-"""Local server: serves the page in public/ and a small JSON API.
+"""Server: serves the page in public/ and a small JSON API from ONE address.
 
 Run:  python3 server.py   then open http://localhost:8000
+
+Settings (environment variables, all optional):
+  PORT          port to listen on. Default 8000. Hosts like Render set this.
+  HOST          address to listen on. Default 127.0.0.1 (this computer only),
+                or 0.0.0.0 (all interfaces) when PORT is set by a host.
+  DATABASE_URL  if set, use PostgreSQL instead of the local SQLite file.
+                Never printed or logged.
 
 API
   GET    /api/registrations?search=...   registrations, waitlist, spots per session
@@ -14,14 +21,27 @@ API
 import json
 import os
 import re
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import db
 
-HOST = "127.0.0.1"
-PORT = int(os.environ.get("SIGNUP_PORT", "8000"))  # tests use another port
+DEFAULT_PORT = 8000
+
+
+def read_port():
+    value = os.environ.get("PORT", str(DEFAULT_PORT)).strip()
+    if not value.isdigit() or not 1 <= int(value) <= 65535:
+        sys.exit(f"ERROR: PORT must be a number from 1 to 65535 (got {value!r}).")
+    return int(value)
+
+
+PORT = read_port()
+# Render (and similar hosts) set PORT and need the app to listen on 0.0.0.0.
+# Locally (no PORT set) the default 127.0.0.1 keeps the app private to this computer.
+HOST = os.environ.get("HOST") or ("0.0.0.0" if "PORT" in os.environ else "127.0.0.1")
 PUBLIC_DIR = Path(__file__).resolve().parent / "public"
 
 # Only these files are served, so the database and Python files stay private.
@@ -66,9 +86,35 @@ def promotion_messages(promoted):
 
 
 class Handler(BaseHTTPRequestHandler):
-    # ----- list + static files -----
+    # Every request goes through run(), so a database problem becomes a clear
+    # JSON error for the browser instead of a dropped connection. Details are
+    # logged with the connection URL removed.
 
     def do_GET(self):
+        self.run(self.handle_get)
+
+    def do_POST(self):
+        self.run(self.handle_post)
+
+    def do_PATCH(self):
+        self.run(self.handle_patch)
+
+    def do_DELETE(self):
+        self.run(self.handle_delete)
+
+    def run(self, action):
+        try:
+            action()
+        except db.DatabaseUnavailableError as error:
+            self.log_error("%s", str(error))
+            self.send_error_json(503, "The database is unavailable right now. Please try again later.")
+        except Exception as error:  # noqa: BLE001 - last-resort safety net
+            self.log_error("Unexpected error: %s", db.safe_error_text(error))
+            self.send_error_json(500, "Something went wrong on the server. Please try again.")
+
+    # ----- list + static files -----
+
+    def handle_get(self):
         url = urlsplit(self.path)
         if url.path == REGISTRATIONS_PATH:
             search = parse_qs(url.query).get("search", [""])[0]
@@ -88,7 +134,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ----- new signup / join waitlist -----
 
-    def do_POST(self):
+    def handle_post(self):
         path = urlsplit(self.path).path
         if path not in (REGISTRATIONS_PATH, WAITLIST_PATH):
             self.send_error_json(404, "Not found.")
@@ -138,7 +184,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ----- change session / mark attendance -----
 
-    def do_PATCH(self):
+    def handle_patch(self):
         kind, item_id = self.item()
         if kind != "registrations":
             self.send_error_json(404, "Not found.")
@@ -188,7 +234,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ----- cancel signup / leave waitlist -----
 
-    def do_DELETE(self):
+    def handle_delete(self):
         kind, item_id = self.item()
         if kind == "registrations":
             try:
@@ -280,10 +326,22 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    db.init_db()
+    # Connect and create any missing tables BEFORE accepting visitors. If
+    # DATABASE_URL is set but PostgreSQL can't be used, stop with a clear
+    # message; never fall back to SQLite silently.
+    try:
+        db.init_db()
+    except db.DatabaseUnavailableError as error:
+        sys.exit(f"ERROR: {error}")
+    except Exception as error:  # noqa: BLE001
+        sys.exit(f"ERROR: Could not prepare the {db.BACKEND} database: {db.safe_error_text(error)}")
+
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"Club Event Signup running at http://localhost:{PORT}  (Ctrl+C to stop)", flush=True)
-    print(f"Database: {db.DB_PATH}", flush=True)
+    if HOST in ("127.0.0.1", "localhost"):
+        print(f"Club Event Signup running at http://localhost:{PORT}  (Ctrl+C to stop)", flush=True)
+    else:
+        print(f"Club Event Signup listening on {HOST}:{PORT}  (Ctrl+C to stop)", flush=True)
+    print(f"Database: {db.describe_backend()}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
